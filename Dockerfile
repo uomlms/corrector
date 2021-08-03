@@ -1,5 +1,15 @@
-FROM node:alpine
-RUN apk update && apk --no-cache add g++ gcc libgcc libstdc++ linux-headers make python3 bash
+FROM node:14-alpine
+
+RUN apk --no-cache add \
+      bash \
+      g++ \
+      ca-certificates \
+      lz4-dev \
+      musl-dev \
+      cyrus-sasl-dev \
+      openssl-dev \
+      make \
+      python
 
 WORKDIR /app
 COPY package.json .
