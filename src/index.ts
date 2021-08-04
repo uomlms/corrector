@@ -22,9 +22,16 @@ const start = async () => {
     throw new Error('KAFKA_GROUP_ID must be defined');
   }
 
-  startConsumers();
+  await kafka.connectProducer(
+    process.env.KAFKA_URL,
+  );
 
-  app.listen(process.env.PORT, () => {
+  process.on('SIGINT', () => kafka.producer.disconnect());
+  process.on('SIGTERM', () => kafka.producer.disconnect());
+
+  await startConsumers();
+
+  app.listen(3000, () => {
     console.log('Listening on port 3000');
   });
 };
