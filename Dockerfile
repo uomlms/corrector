@@ -9,7 +9,8 @@ RUN apk --no-cache add \
       cyrus-sasl-dev \
       openssl-dev \
       make \
-      python
+      python \
+      python3
 
 WORKDIR /app
 COPY package.json .
