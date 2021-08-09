@@ -10,3 +10,11 @@ Python Scipt should return a JSON in stdout in bellow format
     'status': "success" or "fail"
 }
 ```
+
+## Producers
+
+- AssignmentCorrectionProducer : Produces to AssignmentCorrectionTopic. 
+
+## Consumers
+ 
+- AssignmentSubmitConsumers : Listens to AssignmentSubmitTopic. 
