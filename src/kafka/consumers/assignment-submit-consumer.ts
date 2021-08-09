@@ -33,6 +33,7 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
     this.runPython(config, source, (status: string, result: string) => {
       new AssignmentCorrectionProducer(kafka.producer).produce({
         assignmentId: data.assignmentId,
+        submissionId: data.submissionId,
         userId: data.userId,
         status,
         result
