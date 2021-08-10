@@ -1,6 +1,7 @@
-import { Consumer, AssignmentSubmitEvent, Topics, kafka } from '@uomlms/common';
+import { Consumer, AssignmentSubmitEvent, Topics, kafka, verifyToken } from '@uomlms/common';
 import { Message } from 'node-rdkafka';
 import { AssignmentCorrectionProducer } from '../producers/assignment-correction-producer';
+import { SendMailProducer } from '../producers/send-mail-producer';
 import { spawn } from "child_process";
 
 export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
@@ -28,16 +29,24 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
 
 
   onMessage = (data: AssignmentSubmitEvent['data'], message: Message) => {
+    const user = verifyToken(data.user.token);
     const config = data?.configFile || "";
     const source = data?.sourceFile || "";
     this.runPython(config, source, (status: string, result: string) => {
       new AssignmentCorrectionProducer(kafka.producer).produce({
         assignmentId: data.assignmentId,
         submissionId: data.submissionId,
-        userId: data.userId,
         status,
         result
-      })
+      });
+
+      if (user) {
+        new SendMailProducer(kafka.producer).produce({
+          to: user.email,
+          subject: `[${status}] Result from submission ${data.submissionId}`,
+          text: `Corrector output: ${result}`
+        });
+      }
     })
 
   }
