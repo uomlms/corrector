@@ -3,26 +3,51 @@ import time
 import string
 import random
 import json
+import os
+import subprocess
+import pathlib
 
 def get_dummy_result():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(255))
-
-def get_dummy_status():
+ 
+def get_dummy_status(): 
     return "success" if random.randint(0, 1) else "fail"
 
+def gccCompile(assignment_file):
+    path, filename = os.path.split(os.path.abspath(assignment_file))
+    # replace extension with .out to filename
+    filename = pathlib.Path(filename).with_suffix('.out')
+    gcc_compile = subprocess.run([
+        "gcc",
+        assignment_file,
+        "-Wno-format",
+        "-Wno-implicit-int",
+        "-Wno-implicit-function-declaration",
+        f"-I{os.environ['ROBERTS_LIB']}/include",
+        "-lm",
+        f"{os.environ['ROBERTS_LIB']}/lib/roberts.lib",
+        "-o",
+        f"{path}/{filename}"
+    ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    return gcc_compile.stdout.decode('utf-8')
+ 
+
 def run():
+    if 'ROBERTS_LIB' not in os.environ: 
+        raise Exception('Roberts library is not defined')
+
     try:
         assignment_file = sys.argv[1]
-        configuration_file = sys.argv[2]
+        # configuration_file = sys.argv[2]  
     except:
-        assignment_file = "Unable to load assignment file"
-        configuration_file = "Unable to load configuraton file"
+        assignment_file = "Unable to load configuraton file"
+        configuration_file = "Unable to load configuraton file" 
 
-    time.sleep(3)
-    
+    time.sleep(5)
+
     response = {
-        'result': get_dummy_result(),
+        'result': "GCC Compile: " + gccCompile(assignment_file),
         'status': get_dummy_status()
     }
     
