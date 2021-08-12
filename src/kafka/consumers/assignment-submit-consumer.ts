@@ -1,8 +1,10 @@
-import { Consumer, AssignmentSubmitEvent, Topics, kafka, verifyToken } from '@uomlms/common';
+import { Consumer, AssignmentSubmitEvent, Topics, kafka, verifyToken, getObject } from '@uomlms/common';
 import { Message } from 'node-rdkafka';
 import { AssignmentCorrectionProducer } from '../producers/assignment-correction-producer';
 import { SendMailProducer } from '../producers/send-mail-producer';
 import { spawn } from "child_process";
+import path from 'path';
+import fs from 'fs';
 
 export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
   readonly topic = Topics.AssignmentSubmitTopic;
@@ -28,10 +30,26 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
   }
 
 
-  onMessage = (data: AssignmentSubmitEvent['data'], message: Message) => {
+  saveFile = async (key: string) => {
+    const object = await getObject(key);
+
+    const dirname = `tmp/${path.dirname(key)}`;
+    const filename = path.basename(key);
+
+    // make sure folder exists
+    if (!fs.existsSync(dirname)) {
+      fs.mkdirSync(dirname, { recursive: true });
+    }
+
+    const localPath = path.join(dirname, filename);
+    fs.writeFileSync(localPath, object.Body as Buffer);
+    return localPath;
+  }
+
+  onMessage = async (data: AssignmentSubmitEvent['data'], message: Message) => {
     const user = verifyToken(data.user.token);
     const config = data?.configFile || "";
-    const source = data?.sourceFile || "";
+    const source = await this.saveFile(data.sourceFile || "");
     this.runPython(config, source, (status: string, result: string) => {
       new AssignmentCorrectionProducer(kafka.producer).produce({
         assignmentId: data.assignmentId,
@@ -39,7 +57,6 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
         status,
         result
       });
-
       if (user) {
         new SendMailProducer(kafka.producer).produce({
           to: user.email,
