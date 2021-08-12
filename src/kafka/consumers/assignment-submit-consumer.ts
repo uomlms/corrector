@@ -48,9 +48,10 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
 
   onMessage = async (data: AssignmentSubmitEvent['data'], message: Message) => {
     const user = verifyToken(data.user.token);
-    const config = data?.configFile || "";
+    const config = await this.saveFile(data?.configFile || "");
     const source = await this.saveFile(data.sourceFile || "");
     this.runPython(config, source, (status: string, result: string) => {
+      console.log("Python Result: ", result);
       new AssignmentCorrectionProducer(kafka.producer).produce({
         assignmentId: data.assignmentId,
         submissionId: data.submissionId,

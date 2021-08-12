@@ -38,17 +38,18 @@ def run():
         raise Exception('Roberts library is not defined')
 
     try:
-        assignment_file = sys.argv[1]
-        # configuration_file = sys.argv[2]  
+        assignment_file = sys.argv[1] 
+        configuration_file = sys.argv[2]  
     except:
         assignment_file = "Unable to load configuraton file"
         configuration_file = "Unable to load configuraton file" 
 
     time.sleep(5)
-
+ 
     response = {
         'result': "GCC Compile: " + gccCompile(assignment_file),
-        'status': get_dummy_status()
+        'status': get_dummy_status(),
+        'debug': 'Configuration: ' + configuration_file
     }
     
     print(json.dumps(response))
