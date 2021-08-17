@@ -10,6 +10,7 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
   readonly topic = Topics.AssignmentSubmitTopic;
   readonly pythonScriptPath = './src/python/corrector.py';
   readonly pythonExecutable = 'python3';
+  readonly tmpPath = 'tmp';
 
   runPython = (config: string, source: string, cb: any) => {
     const pythonProcess = spawn(this.pythonExecutable, [
@@ -29,28 +30,44 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
     });
   }
 
+  createSubmissionDir = (submissionId: string) => {
+    const submissionPath = `${this.tmpPath}/${submissionId}`;
+    fs.mkdirSync(submissionPath, { recursive: true });
+    return submissionPath;
+  }
 
-  saveFile = async (key: string) => {
+  saveFile = async (key: string, parentDir: string) => {
     const object = await getObject(key);
-
-    const dirname = `tmp/${path.dirname(key)}`;
     const filename = path.basename(key);
-
-    // make sure folder exists
-    if (!fs.existsSync(dirname)) {
-      fs.mkdirSync(dirname, { recursive: true });
-    }
-
-    const localPath = path.join(dirname, filename);
+    const localPath = path.join(parentDir, filename);
     fs.writeFileSync(localPath, object.Body as Buffer);
     return localPath;
   }
 
+  initDirs = async (submissionId: string, configFile: string, sourceFile: string) => {
+    const submissionPath = this.createSubmissionDir(submissionId);
+    const configPath = await this.saveFile(configFile, submissionPath);
+    const sourcePath = await this.saveFile(sourceFile, submissionPath);
+
+    return { configPath, sourcePath };
+  }
+
+  clean = (submissionId: string) => {
+    const submissionPath = `${this.tmpPath}/${submissionId}`;
+    fs.rmdirSync(submissionPath, { recursive: true });
+  }
+
   onMessage = async (data: AssignmentSubmitEvent['data'], message: Message) => {
+    // return early if not config file in assignment
+    if (!data.configFile) { return; }
+
     const user = verifyToken(data.user.token);
-    const config = await this.saveFile(data?.configFile || "");
-    const source = await this.saveFile(data.sourceFile || "");
-    this.runPython(config, source, (status: string, result: string) => {
+    const {
+      configPath,
+      sourcePath
+    } = await this.initDirs(data.submissionId, data.configFile, data.sourceFile);
+
+    this.runPython(configPath, sourcePath, (status: string, result: string) => {
       console.log("Python Result: ", result);
       new AssignmentCorrectionProducer(kafka.producer).produce({
         assignmentId: data.assignmentId,
@@ -65,6 +82,8 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
           text: `Corrector output: ${result}`
         });
       }
+
+      this.clean(data.submissionId);
     })
 
   }
