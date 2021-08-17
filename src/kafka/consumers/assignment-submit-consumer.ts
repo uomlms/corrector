@@ -12,22 +12,26 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
   readonly pythonExecutable = 'python3';
   readonly tmpPath = 'tmp';
 
-  runPython = (config: string, source: string, cb: any) => {
-    const pythonProcess = spawn(this.pythonExecutable, [
-      this.pythonScriptPath,
-      source,
-      config
-    ]);
-    pythonProcess.stdout.setEncoding("utf8");
-    pythonProcess.stdout.on("data", (data) => {
-      const response = JSON.parse(data);
-      cb(response.status, response.result);
-    });
-
-    pythonProcess.stderr.setEncoding("utf8");
-    pythonProcess.stderr.on("data", (data) => {
-      console.log(data)
-    });
+  runPython = (config: string, source: string) => {
+    return new Promise<{ status: string, result: string }>((resolve, reject) => {
+      const pythonProcess = spawn(this.pythonExecutable, [
+        this.pythonScriptPath,
+        source,
+        config
+      ]);
+      pythonProcess.stdout.setEncoding("utf8");
+      pythonProcess.stdout.on("data", (data) => {
+        try {
+          const response = JSON.parse(data);
+          resolve({
+            status: response.status,
+            result: response.result
+          });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    })
   }
 
   createSubmissionDir = (submissionId: string) => {
@@ -52,7 +56,7 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
     return { configPath, sourcePath };
   }
 
-  clean = (submissionId: string) => {
+  cleanup = (submissionId: string) => {
     const submissionPath = `${this.tmpPath}/${submissionId}`;
     fs.rmdirSync(submissionPath, { recursive: true });
   }
@@ -67,25 +71,24 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
       sourcePath
     } = await this.initDirs(data.submissionId, data.configFile, data.sourceFile);
 
-    this.runPython(configPath, sourcePath, (status: string, result: string) => {
-      console.log("Python Result: ", result);
-      new AssignmentCorrectionProducer(kafka.producer).produce({
-        assignmentId: data.assignmentId,
-        submissionId: data.submissionId,
-        status,
-        result
+    const { status, result } = await this.runPython(configPath, sourcePath);
+    console.log("Python Result: ", result);
+    new AssignmentCorrectionProducer(kafka.producer).produce({
+      assignmentId: data.assignmentId,
+      submissionId: data.submissionId,
+      status,
+      result
+    });
+
+    if (user) {
+      new SendMailProducer(kafka.producer).produce({
+        to: user.email,
+        subject: `[${status}] Result from submission ${data.submissionId}`,
+        text: `Corrector output: ${result}`
       });
-      if (user) {
-        new SendMailProducer(kafka.producer).produce({
-          to: user.email,
-          subject: `[${status}] Result from submission ${data.submissionId}`,
-          text: `Corrector output: ${result}`
-        });
-      }
+    }
 
-      this.clean(data.submissionId);
-    })
-
+    this.cleanup(data.submissionId);
   }
 
 }
