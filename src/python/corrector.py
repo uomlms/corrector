@@ -14,7 +14,7 @@ def get_dummy_result():
 def get_dummy_status(): 
     return "success" if random.randint(0, 1) else "fail"
 
-def gccCompile(assignment_file):
+def gcc_compile(assignment_file):
     path, filename = os.path.split(os.path.abspath(assignment_file))
     # replace extension with .out to filename
     filename = pathlib.Path(filename).with_suffix('.out')
