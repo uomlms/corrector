@@ -18,5 +18,6 @@ WORKDIR /app
 COPY package.json .
 RUN npm install --only=prod
 COPY . .
+RUN pip3 install -r requirements.txt 
 
 CMD ["npm", "start"]
