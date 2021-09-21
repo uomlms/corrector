@@ -8,7 +8,10 @@ export class AssignmentSubmitConsumer extends Consumer<AssignmentSubmitEvent> {
 
   onMessage = async (data: AssignmentSubmitEvent['data'], message: any) => {
     // return early if not config file in assignment
-    if (!data.configFile) { return; }
+    if (!data.configFile) {
+      console.log(`Config file does not exists in assignment: ${data.assignmentId}`);
+      return;
+    }
 
     const { status, result } = await correctAssignment(data.submissionId, data.configFile, data.sourceFile);
     console.log("Python Result: ", result);
