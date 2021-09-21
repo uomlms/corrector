@@ -38,8 +38,8 @@ const runPython = (config: string, source: string) => {
   return new Promise<{ status: string, result: string }>((resolve, reject) => {
     const pythonProcess = spawn(pythonExecutable, [
       pythonScriptPath,
-      source,
-      config
+      config,
+      source
     ]);
     pythonProcess.stdout.setEncoding("utf8");
     pythonProcess.stdout.on("data", (data) => {
@@ -50,8 +50,13 @@ const runPython = (config: string, source: string) => {
           result: response.result
         });
       } catch (err) {
+        console.log(`Response from corrector script is not a valid JSON string. Error Stack: ${err}`);
         reject(err);
       }
+    });
+    pythonProcess.stderr.on("data", (err) => {
+      console.log(`Stderr from corrector script. Error: ${err}`);
+      reject(err);
     });
   })
 }
@@ -62,9 +67,15 @@ export const correctAssignment = async (submissionId: string, config: string, so
     sourcePath
   } = await initDirs(submissionId, config, source);
 
-  const { status, result } = await runPython(configPath, sourcePath);
-  cleanup(submissionId);
-
-  return { status, result };
+  try {
+    const { status, result } = await runPython(configPath, sourcePath);
+    cleanup(submissionId);
+    return { status, result };
+  } catch (err) {
+    return {
+      status: "fail",
+      result: "Unexpected error occured"
+    }
+  }
 }
 
